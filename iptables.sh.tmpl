@@ -1,0 +1,15 @@
+#!/bin/sh
+{{ with $json := key "aaSemble/json" | parseJSON }}
+{{ if $json.fwconf }}
+{{ with $d := $json.fwconf }}
+cat <<EOF > /tmp/iptables.snippet
+:AASEMBLE - [0:0]
+-A INPUT -i eth0 -j AASEMBLE
+-A AASEMBLE -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+{{ with $node := node }}{{range $sgname, $sg := $d.security_groups }}{{ range $n := $sg.nodes  }}{{ if eq $n $node.Node.Node }}{{ range $rule := $sg.rules }}
+-A AASEMBLE -j ACCEPT -m conntrack --ctstate NEW -p {{ $rule.protocol }} {{ if eq $rule.from_port $rule.to_port }}--dport {{ $rule.from_port }}{{ else }}-m multiport --dports {{ $rule.from_port }}:{{ $rule.to_port }}{{end}} {{ if $rule.source_ip -}}-s {{ $rule.source_ip }}{{ else }}-m set --match-set sg:{{ $rule.source_group }} src{{ end }}{{end}}{{end}}{{end}}{{end}}{{end}}{{end}}{{end}}
+-A AASEMBLE -j DROP
+EOF
+
+iptables-save -t filter | grep -v AASEMBLE | sed -e '/^:DOCKER-ISOLATION - / r /tmp/iptables.snippet' | iptables-restore -T filter
+{{ end }}

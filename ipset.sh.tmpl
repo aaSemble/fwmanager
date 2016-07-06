@@ -1,0 +1,9 @@
+{{ with $json := key "aaSemble/json" | parseJSON }}{{ with $d := $json.fwconf }}{{ range $sgname, $sg := $d.security_groups -}}
+ipset create -! sg:{{ $sgname }} hash:ip
+ipset destroy -! new:sg:{{ $sgname }}
+ipset create -! new:sg:{{ $sgname }} hash:ip{{ range $nodename := $sg.nodes }}{{ with node $nodename }}
+ipset add new:sg:{{ $sgname }} {{ .Node.Address }}{{ end }}{{end}}
+ipset swap sg:{{ $sgname }} new:sg:{{ $sgname }}
+ipset destroy new:sg:{{ $sgname }}
+
+{{end}}{{end}}{{end}}
